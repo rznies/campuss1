@@ -22,7 +22,7 @@ router.use('/auth', authRoutes);
 
 // Protected routes
 router.use('/matches', requireUser, matchRoutes);
-router.use('/chats', requireUser, chatRoutes);
+router.use('/chat', requireUser, chatRoutes);
 router.use('/posts', requireUser, postRoutes);
 router.use('/users', requireUser, userRoutes);
 router.use('/compliments', requireUser, complimentRoutes);

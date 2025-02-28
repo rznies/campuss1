@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Conversation = require('../models/Chat');
-const { authenticateToken } = require('./middleware/auth');
+const { requireUser } = require('./middleware/auth');
 const rateLimit = require('express-rate-limit');
 
 // Rate limit for sending messages
@@ -15,7 +15,7 @@ const messageLimiter = rateLimit({
 });
 
 // Get all conversations for the current user
-router.get('/conversations', authenticateToken, async (req, res) => {
+router.get('/conversations', requireUser, async (req, res) => {
   try {
     const userId = req.user.id;
     
@@ -56,7 +56,7 @@ router.get('/conversations', authenticateToken, async (req, res) => {
 });
 
 // Get messages for a specific conversation
-router.get('/messages/:conversationId', authenticateToken, async (req, res) => {
+router.get('/messages/:conversationId', requireUser, async (req, res) => {
   try {
     const userId = req.user.id;
     const { conversationId } = req.params;
@@ -106,7 +106,7 @@ router.get('/messages/:conversationId', authenticateToken, async (req, res) => {
 });
 
 // Send a message
-router.post('/send', authenticateToken, messageLimiter, async (req, res) => {
+router.post('/send', requireUser, messageLimiter, async (req, res) => {
   try {
     const userId = req.user.id;
     const { conversationId, message } = req.body;

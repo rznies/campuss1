@@ -5,7 +5,7 @@ import { Footer } from "./Footer"
 import { Sidebar } from "./Sidebar"
 import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
-import { Sheet, SheetContent, SheetTrigger } from "./Sheet"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useMobile } from "@/hooks/useMobile"
 
 export function Layout() {

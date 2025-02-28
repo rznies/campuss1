@@ -24,9 +24,10 @@ const chatSchema = new mongoose.Schema({
   lastMessage: {
     type: String
   },
-  unreadCount: {
-    type: Number,
-    default: 0
+  unreadCounts: {
+    type: Map,
+    of: Number,
+    default: () => new Map()
   },
   lastActivity: {
     type: Date,
