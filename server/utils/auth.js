@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+require('dotenv').config(); // Ensure dotenv is loaded to access environment variables
 
 // Token configuration
 const TOKEN_CONFIG = {
@@ -20,18 +21,21 @@ const TOKEN_CONFIG = {
  * @param {Object} user - User object
  * @param {string} tokenType - Type of token ('access' or 'refresh')
  * @returns {string} JWT token
- * @throws {Error} If invalid token type or missing configuration
+ * @throws {Error} If invalid token type, missing configuration, or user object
  */
 const generateToken = (user, tokenType) => {
   if (!TOKEN_CONFIG[tokenType]) {
     throw new Error(`Invalid token type: ${tokenType}`);
   }
 
-  if (!user?._id) {
-    throw new Error('Invalid user object');
+  if (!user || !user._id) {
+    throw new Error('Invalid user object: missing _id');
   }
 
   const config = TOKEN_CONFIG[tokenType];
+  if (!config.secret) {
+    throw new Error(`Missing ${tokenType} secret (JWT_${tokenType.toUpperCase()}_SECRET) in environment variables`);
+  }
 
   const payload = {
     sub: user._id,
@@ -41,12 +45,15 @@ const generateToken = (user, tokenType) => {
   };
 
   try {
-    return jwt.sign(payload, config.secret, {
+    console.log(`Generating ${tokenType} token for user ID: ${user._id}`); // Debug log
+    const token = jwt.sign(payload, config.secret, {
       expiresIn: config.expiresIn
     });
+    console.log(`Generated ${tokenType} token:`, token);
+    return token;
   } catch (error) {
-    console.error(`Error generating ${tokenType} token:`, error);
-    throw new Error(`Failed to generate ${tokenType} token`);
+    console.error(`Error generating ${tokenType} token for user ID ${user._id}:`, error);
+    throw new Error(`Failed to generate ${tokenType} token: ${error.message}`);
   }
 };
 
@@ -79,14 +86,21 @@ const verifyToken = (token, tokenType) => {
     return null;
   }
 
+  const config = TOKEN_CONFIG[tokenType];
+  if (!config.secret) {
+    console.error(`Missing ${tokenType} secret (JWT_${tokenType.toUpperCase()}_SECRET) in environment variables`);
+    return null;
+  }
+
   try {
-    const decoded = jwt.verify(token, TOKEN_CONFIG[tokenType].secret);
+    const decoded = jwt.verify(token, config.secret);
     
     // Verify token type matches to prevent token reuse
     if (decoded.type !== tokenType) {
       return null;
     }
 
+    console.log(`Verified ${tokenType} token successfully for sub: ${decoded.sub}`);
     return decoded;
   } catch (error) {
     console.error(`Error verifying ${tokenType} token:`, error);
@@ -112,10 +126,15 @@ const extractTokenFromHeader = (authHeader) => {
  * @returns {Object} Object containing both tokens
  */
 const generateAuthTokens = (user) => {
-  return {
-    accessToken: generateAccessToken(user),
-    refreshToken: generateRefreshToken(user)
-  };
+  try {
+    return {
+      accessToken: generateAccessToken(user),
+      refreshToken: generateRefreshToken(user)
+    };
+  } catch (error) {
+    console.error('Error generating auth tokens:', error);
+    throw error;
+  }
 };
 
 /**

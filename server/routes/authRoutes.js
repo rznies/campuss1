@@ -72,13 +72,57 @@ router.post('/login', loginLimiter, async (req, res) => {
  */
 router.post('/register', async (req, res) => {
   try {
-    const user = await UserService.create(req.body);
-    return res.status(201).json({
-      success: true,
-      data: user.toJSON()
-    });
+    const { email, password, name } = req.body;
+    console.log('Registration request body:', req.body); // Log the request body for debugging
+
+    // Validate all required fields
+    if (!email || !password || !name) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email, password, and name are required' 
+      });
+    }
+
+    // Additional validation for email and password
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid email format' 
+      });
+    }
+
+    const user = await UserService.create({ email, password, name });
+    console.log('User created:', user.toJSON()); // Debug user object before token generation
+
+    try {
+      const accessToken = generateAccessToken(user);
+      const refreshToken = generateRefreshToken(user);
+
+      // Store refresh token hash in user document
+      user.refreshToken = refreshToken;
+      await user.save();
+
+      return res.status(201).json({
+        success: true,
+        data: {
+          user: user.toJSON(),
+          accessToken,
+          refreshToken
+        }
+      });
+    } catch (tokenError) {
+      console.error('Token generation error:', tokenError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate access token'
+      });
+    }
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('Registration error details:', {
+      error: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
     
     if (error.code === 11000) { // MongoDB duplicate key error
       return res.status(409).json({

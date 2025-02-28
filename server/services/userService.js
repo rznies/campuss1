@@ -50,13 +50,13 @@ class UserService {
     if (!password) throw new Error('Password is required');
 
     try {
-      const user = await User.findOne({email}).exec();
+      const user = await User.findOne({ email }).exec();
       if (!user) return null;
 
       const passwordValid = await validatePassword(password, user.password);
       if (!passwordValid) return null;
 
-      user.lastLoginAt = Date.now();
+      user.lastLogin = Date.now(); // Updated field name to match User.js (lastLogin instead of lastLoginAt)
       const updatedUser = await user.save();
       return updatedUser;
     } catch (err) {
@@ -80,10 +80,28 @@ class UserService {
         name,
       });
 
+      console.log('User before save (with _id):', {
+        _id: user._id,
+        email: user.email,
+        name: user.name
+      }); // Debug log to check _id before save
+
       await user.save();
+
+      console.log('User after save (with _id):', {
+        _id: user._id,
+        email: user.email,
+        name: user.name
+      }); // Debug log to confirm _id after save
+
       return user;
     } catch (err) {
-      throw new Error(`Database error while creating new user: ${err}`);
+      console.error('Error creating user:', {
+        error: err.message,
+        stack: err.stack,
+        userData: { email, password: '[HASHED]', name }
+      });
+      throw new Error(`Database error while creating new user: ${err.message}`);
     }
   }
 

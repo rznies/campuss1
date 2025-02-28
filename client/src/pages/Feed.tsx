@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { getFeedPosts, likePost } from "@/api/feed"
+import { useEffect, useState, useCallback, useRef } from "react"
+import { getFeedPosts, likePost, createPost } from "@/api/feed"
 import { getComments, addComment } from "@/api/comments"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -12,6 +12,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { formatDistanceToNow } from "date-fns"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { ErrorMessage } from "@/components/ui/error-message"
+import { useAuth } from '@/contexts/AuthContext'
+import { useInView } from 'react-intersection-observer'
 
 type Post = {
   _id: string
@@ -47,24 +49,31 @@ export function Feed() {
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState("")
   const { toast } = useToast()
+  const { user } = useAuth()
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
+  const [page, setPage] = useState(1)
+  const { ref, inView } = useInView()
 
-  useEffect(() => {
-    async function loadPosts() {
-      try {
-        setLoading(true)
-        const response = await getFeedPosts()
+  const loadPosts = useCallback(async (pageNum: number = 1, append: boolean = false) => {
+    try {
+      setIsLoading(true)
+      const response = await getFeedPosts(pageNum)
+      if (append) {
+        setPosts(prevPosts => [...prevPosts, ...response.data])
+      } else {
         setPosts(response.data)
-        setError(null)
-      } catch (err) {
-        console.error("Failed to fetch posts:", err)
-        setError("Failed to load posts. Please try again later.")
-      } finally {
-        setLoading(false)
       }
+      setError(null)
+      setHasMore(response.data.length > 0)
+      setPage(pageNum)
+    } catch (err) {
+      console.error("Failed to fetch posts:", err)
+      setError("Failed to load posts. Please try again later.")
+    } finally {
+      setIsLoading(false)
     }
-
-    loadPosts()
-  }, [])
+  }, [toast])
 
   useEffect(() => {
     if (selectedPost) {
@@ -83,6 +92,16 @@ export function Feed() {
       loadComments()
     }
   }, [selectedPost, toast])
+
+  useEffect(() => {
+    if (inView && hasMore && !isLoading) {
+      loadPosts(page + 1, true)
+    }
+  }, [inView, hasMore, isLoading, loadPosts, page])
+
+  useEffect(() => {
+    loadPosts()
+  }, [loadPosts])
 
   const handleLike = async (postId: string) => {
     try {

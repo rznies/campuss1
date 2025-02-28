@@ -1,27 +1,39 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { login as apiLogin, register as apiRegister, logout as apiLogout } from "@/api/auth";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { login as apiLogin, register as apiRegister, refreshToken, logout as apiLogout } from "@/api/auth";
+import { getOnboardingStatus } from '@/api/onboarding';
+import { User } from '@/types/auth';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   user: any | null;
+  isLoading: boolean;
+  onboardingCompleted: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
+  checkOnboardingStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [user, setUser] = useState<any | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(false);
 
-  // Check if user is authenticated on initial load
+  // Check for existing session on mount
   useEffect(() => {
-    const accessToken = localStorage.getItem("accessToken");
-    if (accessToken) {
-      setIsAuthenticated(true);
-      // Optionally fetch user data here
-    }
+    const initAuth = async () => {
+      const accessToken = localStorage.getItem("accessToken");
+      if (accessToken) {
+        setIsAuthenticated(true);
+        // Optionally fetch user data here
+      }
+      setIsLoading(false);
+    };
+    
+    initAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -43,12 +55,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (email: string, password: string) => {
+  const register = async (email: string, password: string, name: string) => {
     try {
-      const response = await apiRegister(email, password);
+      console.log('Registering with:', { email, password, name }); // Debug the data being sent
+      const response = await apiRegister({ email, password, name });
+      if (response.success) {
+        const { accessToken, refreshToken } = response.data;
+        
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", refreshToken);
+        
+        setIsAuthenticated(true);
+        setUser(response.data.user); // Set user data if available
+      }
       return response;
     } catch (error) {
       console.error("Registration failed:", error);
+      if (error.response) {
+        console.error('Server response:', error.response.data);
+      }
       throw error;
     }
   };
@@ -68,16 +93,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const checkOnboardingStatus = async () => {
+    try {
+      const response = await getOnboardingStatus();
+      setOnboardingCompleted(response.data.completed);
+    } catch (error) {
+      console.error("Error checking onboarding status:", error);
+    }
+  };
+
   const value = {
     isAuthenticated,
     user,
+    isLoading,
+    onboardingCompleted,
     login,
     register,
-    logout
+    logout,
+    checkOnboardingStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+};
 
 export function useAuth() {
   const context = useContext(AuthContext);

@@ -1,3 +1,5 @@
+const jwt = require('jsonwebtoken');
+const User = require('../../models/User');
 const UserService = require('../../services/userService.js');
 const { verifyAccessToken, extractTokenFromHeader } = require('../../utils/auth.js');
 
@@ -107,8 +109,30 @@ const attachUser = async (req, res, next) => {
   }
 };
 
+// This middleware checks for the presence of an access token in the Authorization header.
+function authenticateToken(req, res, next) {
+  // Get the token from the Authorization header in the format "Bearer <token>"
+  const authHeader = req.headers['authorization'];
+  const token = authHeader ? authHeader.split(' ')[1] : null;
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: "No token provided" });
+  }
+
+  // Verify the token using your secret (ensure ACCESS_TOKEN_SECRET is set in your environment variables)
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ success: false, message: "Invalid token" });
+    }
+    // Attach the decoded token (user payload) to the request object.
+    req.user = decoded;
+    next();
+  });
+}
+
 module.exports = {
   requireUser,
   requireAdmin,
-  attachUser
+  attachUser,
+  authenticateToken
 };

@@ -1,10 +1,15 @@
 const mongoose = require('mongoose');
 
+const DATABASE_URL = process.env.DATABASE_URL || 'mongodb://localhost:27017/campuss_test';
+if (!DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is required');
+}
+
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.DATABASE_URL, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+    const conn = await mongoose.connect(DATABASE_URL, {
+      // useNewUrlParser: true,
+      // useUnifiedTopology: true,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
       family: 4
@@ -43,5 +48,6 @@ const closeDatabase = async () => {
 
 module.exports = { 
   connectDB,
-  closeDatabase
+  closeDatabase,
+  DATABASE_URL
 };

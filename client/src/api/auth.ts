@@ -12,19 +12,24 @@ interface LoginData {
 }
 
 interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: {
-    _id: string;
-    email: string;
-    name: string;
+  success: boolean;
+  data: {
+    accessToken: string;
+    refreshToken: string;
+    user: {
+      _id: string;
+      email: string;
+      name: string;
+    };
   };
 }
 
 // Register a new user
 export const register = async (data: RegisterData): Promise<AuthResponse> => {
   try {
-    const response = await api.post('/auth/register', data);
+    const response = await api.post('/auth/register', data, {
+      withCredentials: true // Important for cookies
+    });
     return response.data;
   } catch (error) {
     console.error('Error during registration:', error);
