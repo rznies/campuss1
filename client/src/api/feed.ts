@@ -1,51 +1,89 @@
 import api from './api';
 
+interface User {
+  _id: string;
+  name: string;
+  avatar: string;
+}
+
+interface Post {
+  _id: string;
+  author: User;
+  content: string;
+  image?: string;
+  likes: number;
+  comments: number;
+  createdAt: string;
+}
+
+interface CreatePostResponse {
+  success: boolean;
+  post: Post;
+}
+
+interface LikePostResponse {
+  success: boolean;
+  likes: number;
+}
+
 // Description: Get posts for the college feed
 // Endpoint: GET /api/feed
 // Request: {}
 // Response: Array<{ _id: string, author: { _id: string, name: string, avatar: string }, content: string, image?: string, likes: number, comments: number, createdAt: string }>
-export const getFeedPosts = () => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve([
-        {
-          _id: '1',
-          author: {
-            _id: 'user1',
-            name: 'John Doe',
-            avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
-          },
-          content: 'Just aced my finals! 🎉',
-          likes: 24,
-          comments: 5,
-          createdAt: '2024-02-15T10:30:00Z',
-        },
-        {
-          _id: '2',
-          author: {
-            _id: 'user2',
-            name: 'Jane Smith',
-            avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jane',
-          },
-          content: 'Anyone up for study group in the library? 📚',
-          image: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f',
-          likes: 15,
-          comments: 8,
-          createdAt: '2024-02-15T09:15:00Z',
-        },
-      ]);
-    }, 500);
-  });
+export const getFeedPosts = async (): Promise<Post[]> => {
+  try {
+    const response = await api.get<Post[]>('/feed');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching feed posts:', error);
+    throw new Error('Failed to fetch feed posts');
+  }
 };
 
 // Description: Like a post
 // Endpoint: POST /api/feed/like
 // Request: { postId: string }
 // Response: { success: boolean }
-export const likePost = (postId: string) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ success: true });
-    }, 300);
-  });
+export const likePost = async (postId: string): Promise<LikePostResponse> => {
+  if (!postId) {
+    throw new Error('Post ID is required');
+  }
+
+  try {
+    const response = await api.post<LikePostResponse>('/feed/like', { postId });
+    return response.data;
+  } catch (error) {
+    console.error('Error liking post:', error);
+    throw new Error('Failed to like post');
+  }
+};
+
+// Create a new post
+export const createPost = async (data: { 
+  content: string; 
+  image?: File 
+}): Promise<CreatePostResponse> => {
+  if (!data.content.trim()) {
+    throw new Error('Content is required');
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('content', data.content);
+    
+    if (data.image) {
+      formData.append('image', data.image);
+    }
+    
+    const response = await api.post<CreatePostResponse>('/feed/create', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error creating post:', error);
+    throw new Error('Failed to create post');
+  }
 };

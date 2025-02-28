@@ -1,59 +1,130 @@
 const express = require('express');
 const UserService = require('../services/userService.js');
 const { requireUser } = require('./middleware/auth.js');
-const { generateAccessToken, generateRefreshToken } = require('../utils/auth.js');
-const jwt = require('jsonwebtoken');
+const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../utils/auth.js');
+const rateLimit = require('express-rate-limit');
 
 const router = express.Router();
 
-router.post('/login', async (req, res) => {
-  const sendError = msg => res.status(400).json({ message: msg });
+// Rate limiting configuration
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts
+  message: { 
+    success: false, 
+    message: 'Too many login attempts. Please try again later.' 
+  }
+});
+
+/**
+ * @route POST /api/auth/login
+ * @desc Authenticate user and return tokens
+ * @access Public
+ */
+router.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    return sendError('Email and password are required');
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Email and password are required' 
+    });
   }
 
-  const user = await UserService.authenticateWithPassword(email, password);
+  try {
+    const user = await UserService.authenticateWithPassword(email, password);
 
-  if (user) {
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
+    if (user) {
+      const accessToken = generateAccessToken(user);
+      const refreshToken = generateRefreshToken(user);
 
-    user.refreshToken = refreshToken;
-    await user.save();
-    return res.json({...user.toObject(), accessToken});
-  } else {
-    return sendError('Email or password is incorrect');
+      // Store refresh token hash in user document
+      user.refreshToken = refreshToken;
+      await user.save();
 
+      return res.json({
+        success: true,
+        data: {
+          user: user.toJSON(),
+          accessToken,
+          refreshToken
+        }
+      });
+    }
+
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid credentials'
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Authentication failed'
+    });
   }
 });
 
-router.post('/register', async (req, res, next) => {
-  if (req.user) {
-    return res.json({ user: req.user });
-  }
+/**
+ * @route POST /api/auth/register
+ * @desc Register new user
+ * @access Public
+ */
+router.post('/register', async (req, res) => {
   try {
     const user = await UserService.create(req.body);
-    return res.status(200).json(user);
+    return res.status(201).json({
+      success: true,
+      data: user.toJSON()
+    });
   } catch (error) {
-    console.error(`Error while registering user: ${error}`);
-    return res.status(400).json({ error });
+    console.error('Registration error:', error);
+    
+    if (error.code === 11000) { // MongoDB duplicate key error
+      return res.status(409).json({
+        success: false,
+        message: 'Email already registered'
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Registration failed'
+    });
   }
 });
 
-router.post('/logout', async (req, res) => {
-  const { email } = req.body;
+/**
+ * @route POST /api/auth/logout
+ * @desc Logout user and invalidate tokens
+ * @access Protected
+ */
+router.post('/logout', requireUser, async (req, res) => {
+  try {
+    const user = await UserService.get(req.user.sub);
+    if (user) {
+      user.refreshToken = null;
+      await user.save();
+    }
 
-  const user = await User.findOne({ email });
-  if (user) {
-    user.refreshToken = null;
-    await user.save();
+    return res.status(200).json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Logout failed'
+    });
   }
-
-  res.status(200).json({ message: 'User logged out successfully.' });
 });
 
+/**
+ * @route POST /api/auth/refresh
+ * @desc Refresh access token
+ * @access Public
+ */
 router.post('/refresh', async (req, res) => {
   const { refreshToken } = req.body;
 
@@ -65,20 +136,16 @@ router.post('/refresh', async (req, res) => {
   }
 
   try {
-    // Verify the refresh token
-    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-
-    // Find the user
-    const user = await UserService.get(decoded.sub);
-
-    if (!user) {
+    const decoded = verifyRefreshToken(refreshToken);
+    if (!decoded) {
       return res.status(403).json({
         success: false,
-        message: 'User not found'
+        message: 'Invalid refresh token'
       });
     }
 
-    if (user.refreshToken !== refreshToken) {
+    const user = await UserService.get(decoded.sub);
+    if (!user || user.refreshToken !== refreshToken) {
       return res.status(403).json({
         success: false,
         message: 'Invalid refresh token'
@@ -89,11 +156,10 @@ router.post('/refresh', async (req, res) => {
     const newAccessToken = generateAccessToken(user);
     const newRefreshToken = generateRefreshToken(user);
 
-    // Update user's refresh token in database
+    // Update refresh token
     user.refreshToken = newRefreshToken;
     await user.save();
 
-    // Return new tokens
     return res.status(200).json({
       success: true,
       data: {
@@ -101,26 +167,34 @@ router.post('/refresh', async (req, res) => {
         refreshToken: newRefreshToken
       }
     });
-
   } catch (error) {
-    console.error(`Token refresh error: ${error.message}`);
-
-    if (error.name === 'TokenExpiredError') {
-      return res.status(403).json({
-        success: false,
-        message: 'Refresh token has expired'
-      });
-    }
-
-    return res.status(403).json({
+    console.error('Token refresh error:', error);
+    return res.status(500).json({
       success: false,
-      message: 'Invalid refresh token'
+      message: 'Token refresh failed'
     });
   }
 });
 
+/**
+ * @route GET /api/auth/me
+ * @desc Get current user profile
+ * @access Protected
+ */
 router.get('/me', requireUser, async (req, res) => {
-  return res.status(200).json(req.user);
+  try {
+    const user = await UserService.get(req.user.sub);
+    return res.status(200).json({
+      success: true,
+      data: user.toJSON()
+    });
+  } catch (error) {
+    console.error('Profile fetch error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch profile'
+    });
+  }
 });
 
 module.exports = router;

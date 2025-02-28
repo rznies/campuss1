@@ -3,9 +3,9 @@ import { Outlet } from "react-router-dom"
 import { Header } from "./Header"
 import { Footer } from "./Footer"
 import { Sidebar } from "./Sidebar"
-import { Button } from "./ui/button"
+import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
-import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet"
+import { Sheet, SheetContent, SheetTrigger } from "./Sheet"
 import { useMobile } from "@/hooks/useMobile"
 
 export function Layout() {

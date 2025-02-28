@@ -1,38 +1,45 @@
 import api from './api';
 
+interface LeaderboardUser {
+  _id: string;
+  name: string;
+  avatar: string;
+  points: number;
+  rank: number;
+  badges: string[];
+}
+
+interface LeaderboardResponse {
+  users: LeaderboardUser[];
+  currentUser: {
+    rank: number;
+    points: number;
+    position: 'up' | 'down' | 'same';
+    change: number;
+  };
+}
+
 // Description: Get leaderboard data
 // Endpoint: GET /api/leaderboard
 // Request: {}
 // Response: Array<{ _id: string, name: string, avatar: string, points: number, rank: number, badges: string[] }>
-export const getLeaderboard = () => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve([
-        {
-          _id: 'user1',
-          name: 'John Doe',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
-          points: 1250,
-          rank: 1,
-          badges: ['Early Adopter', 'Top Contributor'],
-        },
-        {
-          _id: 'user2',
-          name: 'Jane Smith',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jane',
-          points: 980,
-          rank: 2,
-          badges: ['Helpful Hero'],
-        },
-        {
-          _id: 'user3',
-          name: 'Mike Wilson',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike',
-          points: 750,
-          rank: 3,
-          badges: ['Rising Star'],
-        },
-      ]);
-    }, 500);
-  });
+export const getLeaderboard = async (): Promise<LeaderboardResponse> => {
+  try {
+    const response = await api.get<LeaderboardResponse>('/leaderboard');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error);
+    throw new Error('Failed to fetch leaderboard');
+  }
+};
+
+// Get user's rank history
+export const getRankHistory = async (): Promise<Array<{ date: string; rank: number; points: number }>> => {
+  try {
+    const response = await api.get<Array<{ date: string; rank: number; points: number }>>('/leaderboard/history');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching rank history:', error);
+    throw new Error('Failed to fetch rank history');
+  }
 };

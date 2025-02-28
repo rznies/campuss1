@@ -5,12 +5,43 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.DATABASE_URL, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      family: 4
     });
+
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+
+    mongoose.connection.on('error', err => {
+      console.error('MongoDB connection error:', err);
+    });
+
+    mongoose.connection.on('disconnected', () => {
+      console.warn('MongoDB disconnected. Attempting to reconnect...');
+    });
+
+    mongoose.connection.on('reconnected', () => {
+      console.log('MongoDB reconnected');
+    });
+
+    return conn;
   } catch (err) {
     console.error('MongoDB connection error:', err.message);
     process.exit(1);
   }
 };
 
-module.exports = { connectDB };
+const closeDatabase = async () => {
+  try {
+    await mongoose.connection.close(false);
+    console.log('MongoDB connection closed');
+  } catch (err) {
+    console.error('Error closing MongoDB connection:', err);
+    process.exit(1);
+  }
+};
+
+module.exports = { 
+  connectDB,
+  closeDatabase
+};

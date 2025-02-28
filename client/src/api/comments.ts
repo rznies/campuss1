@@ -1,46 +1,59 @@
 import api from './api';
 
+interface User {
+  _id: string;
+  name: string;
+  avatar: string;
+}
+
+interface Comment {
+  _id: string;
+  post: string;
+  author: User;
+  content: string;
+  createdAt: string;
+}
+
+interface AddCommentResponse {
+  success: boolean;
+  comment: Comment;
+}
+
 // Description: Get comments for a post
 // Endpoint: GET /api/feed/comments/:postId
 // Request: {}
 // Response: Array<{ _id: string, author: { _id: string, name: string, avatar: string }, content: string, createdAt: string }>
-export const getComments = (postId: string) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve([
-        {
-          _id: 'c1',
-          author: {
-            _id: 'user1',
-            name: 'John Doe',
-            avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
-          },
-          content: 'Great post!',
-          createdAt: '2024-02-15T15:30:00Z',
-        },
-        {
-          _id: 'c2',
-          author: {
-            _id: 'user2',
-            name: 'Jane Smith',
-            avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jane',
-          },
-          content: 'Thanks for sharing!',
-          createdAt: '2024-02-15T15:35:00Z',
-        },
-      ]);
-    }, 500);
-  });
+export const getComments = async (postId: string): Promise<Comment[]> => {
+  if (!postId) {
+    throw new Error('Post ID is required');
+  }
+
+  try {
+    const response = await api.get<Comment[]>(`/feed/comments/${postId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    throw new Error('Failed to fetch comments');
+  }
 };
 
 // Description: Add a comment to a post
 // Endpoint: POST /api/feed/comments
 // Request: { postId: string, content: string }
 // Response: { success: boolean }
-export const addComment = (data: { postId: string; content: string }) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ success: true });
-    }, 300);
-  });
+export const addComment = async (data: {
+  postId: string;
+  content: string;
+}): Promise<AddCommentResponse> => {
+  if (!data.postId || !data.content.trim()) {
+    throw new Error('Post ID and content are required');
+  }
+
+  try {
+    const response = await api.post<AddCommentResponse>('/feed/comments', data);
+    return response.data;
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    throw new Error('Failed to add comment');
+  }
 };

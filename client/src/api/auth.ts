@@ -1,40 +1,68 @@
 import api from './api';
 
-// Description: Login user functionality
-// Endpoint: POST /api/auth/login
-// Request: { email: string, password: string }
-// Response: { accessToken: string, refreshToken: string }
-export const login = async (email: string, password: string) => {
+interface RegisterData {
+  email: string;
+  password: string;
+  name: string;
+}
+
+interface LoginData {
+  email: string;
+  password: string;
+}
+
+interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: {
+    _id: string;
+    email: string;
+    name: string;
+  };
+}
+
+// Register a new user
+export const register = async (data: RegisterData): Promise<AuthResponse> => {
   try {
-    const response = await api.post('/api/auth/login', { email, password });
+    const response = await api.post('/auth/register', data);
     return response.data;
   } catch (error) {
-    console.error('Login error:', error);
-    throw new Error(error?.response?.data?.message || error.message);
+    console.error('Error during registration:', error);
+    throw error;
   }
 };
 
-// Description: Register user functionality
-// Endpoint: POST /api/auth/register
-// Request: { email: string, password: string }
-// Response: { email: string }
-export const register = async (email: string, password: string) => {
+// Login user
+export const login = async (data: LoginData): Promise<AuthResponse> => {
   try {
-    const response = await api.post('/api/auth/register', {email, password});
+    const response = await api.post('/auth/login', data);
     return response.data;
   } catch (error) {
-    throw new Error(error?.response?.data?.message || error.message);
+    console.error('Error during login:', error);
+    throw error;
   }
 };
 
-// Description: Logout
-// Endpoint: POST /api/auth/logout
-// Request: {}
-// Response: { success: boolean, message: string }
-export const logout = async () => {
+// Refresh access token
+export const refreshToken = async (refreshToken: string): Promise<AuthResponse> => {
   try {
-    return await api.post('/api/auth/logout');
+    const response = await api.post('/auth/refresh', { refreshToken });
+    return response.data;
   } catch (error) {
-    throw new Error(error?.response?.data?.message || error.message);
+    console.error('Error refreshing token:', error);
+    throw error;
+  }
+};
+
+// Logout user
+export const logout = async (): Promise<void> => {
+  try {
+    await api.post('/auth/logout');
+    // Clear tokens from localStorage
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  } catch (error) {
+    console.error('Error during logout:', error);
+    throw error;
   }
 };

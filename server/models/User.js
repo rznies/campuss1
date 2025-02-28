@@ -5,7 +5,9 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    trim: true,
+    lowercase: true
   },
   password: {
     type: String,
@@ -20,13 +22,32 @@ const userSchema = new mongoose.Schema({
     default: 0
   },
   badges: [String],
-  createdAt: {
-    type: Date,
-    default: Date.now
+  refreshToken: {
+    type: String,
+    default: null
   },
   isVerified: {
     type: Boolean,
     default: false
+  },
+  isDisabled: {
+    type: Boolean,
+    default: false
+  },
+  isAdmin: {
+    type: Boolean,
+    default: false
+  },
+  lastLogin: {
+    type: Date
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
 });
 
@@ -42,8 +63,42 @@ userSchema.pre('save', async function(next) {
   }
 });
 
+userSchema.methods.toJSON = function() {
+  const obj = this.toObject();
+  delete obj.password;
+  delete obj.refreshToken;
+  delete obj.__v;
+  return obj;
+};
+
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
+
+userSchema.methods.updateLastLogin = function() {
+  this.lastLogin = new Date();
+  return this.save();
+};
+
+userSchema.methods.addPoints = async function(points) {
+  this.points += points;
+  return this.save();
+};
+
+userSchema.methods.addBadge = async function(badge) {
+  if (!this.badges.includes(badge)) {
+    this.badges.push(badge);
+    return this.save();
+  }
+  return this;
+};
+
+userSchema.statics.findByEmail = function(email) {
+  return this.findOne({ email: email.toLowerCase() });
+};
+
+userSchema.index({ email: 1 });
+userSchema.index({ points: -1 });
+userSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('User', userSchema);

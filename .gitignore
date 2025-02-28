@@ -1,7 +1,39 @@
-server/node_modules/
-server/.env
-server/package-lock.json
-client/node_modules/
-client/package-lock.json
+# Dependencies
 node_modules/
-package-lock.json
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Testing
+coverage/
+
+# Production
+build/
+dist/
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
